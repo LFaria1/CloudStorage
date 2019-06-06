@@ -1,5 +1,10 @@
 class Controller {
     constructor() {
+
+        /**
+        * Selecting HTML elements
+        */
+
         this.btnSendFileEl = document.querySelector("#btn-send-file");
         this.inputFileEl = document.querySelector("#files");
         this.snackBar = document.querySelector("#react-snackbar-root");
@@ -14,15 +19,24 @@ class Controller {
         this.currentPath = ["files"];
         this.breadCrumb = document.querySelector("#browse-location");
 
-        this.connectFB();
+        /**
+        * Initializating attributes
+        */
         this.startUpTime = 0;
+
+        /**
+        * Initializating Events
+        */
+        this.connectFB();
         this.initEvents();
         this.readFilesFB();
     }
-    //Os arquivos ficam guardados no Firebase Storage, enquanto sua referência fica guardada no Firebase Database
 
+    /**
+     * The files are stored in Firebase Storage while their references are stored in Firebase database
+     * Connecting to firebase
+     */
     connectFB() {
-
         // Initialize Firebase
         var config = {
             apiKey: "AIzaSyCFUk71bXvRglH9gFkSaLKLG_HqNMEECYk",
@@ -36,16 +50,20 @@ class Controller {
         var rootRef = firebase.database().ref();
 
     }
-    //contar n de arquivos selecionados
+    /**
+     * Number of selected files
+     */
     nOfSelected() {
         return this.listFiles.querySelectorAll(".selected");
     }
-    //inicializando eventos
+
+    /**
+     * Adding event listeners
+     */
     initEvents() {
         this.listFiles.addEventListener('filesSelected', e => {
-
             switch (this.nOfSelected().length) {
-                //Botões de renomear e excluir só aparecem quando há algum botão selecionado
+                //Delete and rename buttons are visible when one or more files are selected
                 case 0:
                     this.renameEl.style.display = "none";
                     this.deleteEl.style.display = "none";
@@ -60,13 +78,15 @@ class Controller {
                     break;
             }
         });
+
         this.renameEl.addEventListener("click", e => {
-            //nOfSelected retorna todos os li selecionados
+            //nOfSelected returns the selected files elements
             let li = this.nOfSelected()[0];
             let key = li.dataset.key;
             let item = this.getFBRef().child(key);
             let name;
-            //não retorna objeto, retorna a snapshot do objeto;
+
+            //Firebase returns a 'snapshot' of an object 
             item.on("value", snapshot => {
                 console.log(name = snapshot.val().name);
             });
@@ -78,7 +98,7 @@ class Controller {
         });
 
         this.deleteEl.addEventListener("click", e => {
-            //Deletando a referência no Firebase Database e o arquivo no Firebase Storage            
+            //When deleting, removing from Firebase Database and Firebase Storage            
             let selected = this.nOfSelected();
             selected.forEach(li => {
                 let key = li.dataset.key;
@@ -96,19 +116,20 @@ class Controller {
         });
 
         this.newFolderEl.addEventListener("click", e => {
+            //Creating folder
             this.createFolder();
         });
 
-        this.btnSendFileEl.addEventListener("click", e => {           
+        this.btnSendFileEl.addEventListener("click", e => {    
+            //Sending file       
             this.inputFileEl.click();
         });
 
-        //Evento do botão de upload do arquivo
+        //Upload file button event
         this.inputFileEl.addEventListener("change", e => {
             this.uploadTask(e.target.files).then(resp => {
                 resp.forEach(res => {
-                    res.ref.getDownloadURL().then(data => {
-                        //joga dentro do Firebase database, não dentro do Firebase Storage                
+                    res.ref.getDownloadURL().then(data => {              
                         this.getFBRef(this.currentPath.join("/")).push().set({
                             name: res.name,
                             type: res.contentType, size: res.size, path: data
@@ -123,9 +144,14 @@ class Controller {
             this.inputFileEl.value = "";
         });
     }
-    //FIM inicializando eventos
+    /**
+     * End Init Events
+     */
 
-    //INICIO deleteStuff
+    /**
+     * Deleting file and folders. If folder has files or folders inside,
+     * will be called recursively
+     */
     deleteStuff(key, ref = this.currentPath.join("/")) {
         return new Promise((result, reject) => {
             let upref = ref;
@@ -134,7 +160,7 @@ class Controller {
             child.once("value", snapshot => {
                 let type = snapshot.val().type;
                 let name = snapshot.val().name;
-                //Para deletar a pasta, cada item dentro da pasta deve ser deletado individualmente
+                //Deleting individual elements inside folders
                 if (type === "folder") {
                     this.getFBRef(upref + "/" + name).once("value", snapshot => {
                         snapshot.forEach(item => {
@@ -158,14 +184,17 @@ class Controller {
             });
         });
     }
-    //FIM deleteStuff
+   /**
+    * End deleteStuff
+    */
 
-    
+    /**
+     * Creating folder. Only creates folder inside firebase database. 
+     * In firebase storage all files are inside the same folder
+     */
     createFolder() {
-        //Criando a pasta no firebase database. No firebase storage, todos os arquivos estão na mesma pasta
         let name = prompt("Digite o nome da pasta");
         if (name) {
-
             this.getFBRef(this.currentPath.join("/")).push({
                 name,
                 type: "folder",
@@ -174,17 +203,23 @@ class Controller {
         }
     }
 
-    
+    /**
+     * Receives a path and returns the firebase path
+     */
     getFBRef(path = "files") {
         return firebase.database().ref(path);
     }
 
-    //INICIO uploadTask
+    /**
+     * Uploading files into firebase storage and showing upload progress.
+     * Each promise will return the metadata of the file uploaded
+     */
+    
     uploadTask(files) {
         let promises = [];
-        //converter coleções para arrays
+        //Converting collection to array
         [...files].forEach(file => {
-            //Promise para dar push no firebase storage
+            //Each upload is a promise
             promises.push(new Promise((resolve, reject) => {
                 let fr = firebase.storage().ref(this.currentPath.join("/")).child(file.name);
                 let task = fr.put(file);
@@ -193,7 +228,7 @@ class Controller {
                     this.uploadProgress({
                         loaded: snapshot.bytesTransferred,
                         total: snapshot.totalBytes
-                    }, file);
+                    });
 
                 }, error => {
                     reject(error);
@@ -212,10 +247,15 @@ class Controller {
         });
         return Promise.all(promises);
     }
-    //FIM uploadTask
+    /**
+     * End uploadTask
+     */
 
-    //INICIO uploadProgress
-    uploadProgress(e, file) {
+
+    /**
+     * Show the total size, bytes transferred and expected time left
+     */
+    uploadProgress(e) {
 
         let loaded = e.loaded;
         let total = e.total;
@@ -224,7 +264,7 @@ class Controller {
         let timeSpent = parseInt(Date.now() - this.startUpTime);
         let timeLeft = (100 - percent) * timeSpent / percent;
         timeLeft = Math.ceil(timeLeft / 1000);
-        //se não puder calcular, então tempo é mostrado como 0
+        //If cant calculate time, will show as zero
         if (!isFinite(timeLeft)) {
             timeLeft = 0;
         }
@@ -239,13 +279,18 @@ class Controller {
             this.timeLeftEl.innerHTML = `${timeLeft} sec restantes`;
         }
     }
-    //FIM uploadProgress
+   /**
+    * End uploadProgress
+    */
 
     modalDisplay(show = true) {
         this.snackBar.style.display = (show) ? "block" : "none";
     }
 
-    //Cria a <li> do arquivo que será mostrado na tela
+    /**
+     * Creates the LI element to display name and icon of uploaded file 
+     * on screen and call function to add click events to LI
+     */
     getFileType(file, key) {
         let li = document.createElement("li");
         li.dataset.key = key;
@@ -257,9 +302,12 @@ class Controller {
         return li;
     }
 
+    /**
+     * Reading files from firebase and display on screen
+     * Call function to update bread crumb
+     */
 
     readFilesFB(path = "files") {
-        //lê os arquivos do firebase database e imprime na tela
         this.getFBRef(path).on('value', snapshot => {
             this.listFiles.innerHTML = "";
 
@@ -274,7 +322,9 @@ class Controller {
         this.updateBreadCrumb();
     }
 
-
+    /**
+     * Making breadcrumb navigable
+     */
     breadCrumbLink(span, subPath) {
         span.addEventListener("click", e => {
             let bcLength = this.breadCrumb.childNodes.length;
@@ -282,11 +332,12 @@ class Controller {
             this.readFilesFB(this.currentPath.join("/"));
         });
     }
-    
-    //FIM updateBreadCrumb  
+
+    /**
+     * Updating breadcrumb everytime the page is changed
+     */
     updateBreadCrumb() {
         let len = this.currentPath.length;
-        //atualizando breacrumb toda vez que há mudança na página
         this.breadCrumb.innerHTML = "";
         for (let i = 0; i < len; i++) {
             let subPath = this.currentPath.slice(0, i + 1);
@@ -311,25 +362,26 @@ class Controller {
             this.breadCrumbLink(span, subPath);
         }
     }
-    //FIM updateBreadCrumb
+    /**
+     * End updateBreadCrumb
+     */
 
 
-    //INICIO liEvents
+    /**
+     * Adding LI events of files on screen 
+     */
     liEvents(li) {
-        //Adicionando eventos ao <li> quando o objeto é lido do database
+        //Download/open file when doubleclick
         li.addEventListener("dblclick", e => {
             let item = this.getFBRef(this.currentPath.join("/")).child(li.dataset.key);
-            //snapshot do objeto
             item.once("value", snapshot => {
             }).then((res) => {
                 switch (res.val().type) {
                     case "folder":
-
                         this.getFBRef(this.currentPath.join("/")).off("value");
                         this.currentPath.push(res.val().name);
                         this.readFilesFB(this.currentPath.join("/"));
                         break;
-
                     default:
                         window.open(res.val().path);
                         break;
@@ -338,9 +390,10 @@ class Controller {
             });
         });
 
+        /**
+        * One click to select the file. Multiple selection if holding shift/crtl 
+        */
         li.addEventListener("click", e => {
-            //Selecionar quando clicar em um arquivo na interface
-            //Multiplas seleções se o shift/crtl está pressionado
             if (e.shiftKey) {
                 let firstLi = this.listFiles.querySelector(".selected");
                 if (firstLi) {
@@ -377,6 +430,8 @@ class Controller {
 
         });
     }
-    //FIM liEvents
+    /**
+     * End LiEvents
+     */
 
 }

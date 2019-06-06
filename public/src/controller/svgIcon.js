@@ -1,3 +1,6 @@
+/**
+ * Returning svg to match the type of uploaded file
+ */
 class svgIcon{
 
     static getSvg(file){        
